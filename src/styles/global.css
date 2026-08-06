@@ -4,15 +4,15 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap');
 
-/* ---- CSS Variables ---- */
+/* ---- CSS Variables (Professional Light Theme) ---- */
 :root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #818cf8;
-  --primary-glow: rgba(99, 102, 241, 0.3);
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --primary-light: #6366f1;
+  --primary-glow: rgba(79, 70, 229, 0.15);
 
-  --secondary: #06b6d4;
-  --secondary-dark: #0891b2;
+  --secondary: #0284c7;
+  --secondary-dark: #0369a1;
 
   --accent: #f59e0b;
   --danger: #ef4444;
@@ -20,33 +20,33 @@
   --success: #10b981;
   --warning: #f59e0b;
 
-  --emergency: #ff3b30;
-  --urgent: #ff9500;
-  --normal: #34c759;
+  --emergency: #dc2626;
+  --urgent: #ea580c;
+  --normal: #16a34a;
 
-  --bg-primary: #0a0a1a;
-  --bg-secondary: #0f0f2e;
-  --bg-card: #1a1a3e;
-  --bg-card-hover: #1e1e4a;
-  --bg-glass: rgba(26, 26, 62, 0.7);
-  --bg-input: rgba(255, 255, 255, 0.05);
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --bg-input: #f8fafc;
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
   --text-muted: #64748b;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(99, 102, 241, 0.5);
+  --border: #e2e8f0;
+  --border-focus: #818cf8;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 30px var(--primary-glow);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --shadow-glow: 0 8px 24px rgba(79, 70, 229, 0.15);
 
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
 
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -104,13 +104,14 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 24px;
+  box-shadow: var(--shadow-sm);
   transition: var(--transition);
 }
 
 .card:hover {
-  background: var(--bg-card-hover);
+  background: var(--bg-card);
   border-color: var(--border-focus);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
@@ -145,13 +146,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.07);
+  background: #f1f5f9;
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-  background: rgba(255,255,255,0.12);
+  background: #e2e8f0;
   border-color: var(--primary);
 }
 
@@ -593,14 +594,15 @@ tbody tr:hover { background: rgba(255,255,255,0.03); }
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.07);
+  background: #f1f5f9;
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.1));
-  color: var(--primary-light);
-  border: 1px solid rgba(99,102,241,0.2);
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(2, 132, 199, 0.08));
+  color: var(--primary);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  font-weight: 700;
 }
 
 .nav-icon { font-size: 18px; flex-shrink: 0; }

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../api/supabaseClient';
+import { apiClient } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { format, addDays, isToday, isTomorrow } from 'date-fns';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isConfigured } = useAuth();
   const [activeTab, setActiveTab] = useState('book');
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -40,36 +40,30 @@ const PatientDashboard = () => {
   }, [selectedDoctor, selectedDate]);
 
   const fetchDoctors = async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'doctor')
-      .order('full_name');
-    if (!error) setDoctors(data || []);
+    try {
+      const data = await apiClient.getDoctors();
+      setDoctors(data || []);
+    } catch (err) {
+      toast.error('Failed to load doctors list');
+    }
   };
 
   const fetchMyAppointments = async () => {
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        doctor:profiles!appointments_doctor_id_fkey(full_name, specialty)
-      `)
-      .eq('patient_id', profile.id)
-      .order('appointment_date', { ascending: false });
-    if (!error) setAppointments(data || []);
+    try {
+      const data = await apiClient.getAppointments(profile.id, 'patient');
+      setAppointments(data || []);
+    } catch (err) {
+      toast.error('Failed to load appointments');
+    }
   };
 
   const fetchMedicalRecords = async () => {
-    const { data, error } = await supabase
-      .from('medical_records')
-      .select(`
-        *,
-        doctor:profiles!medical_records_doctor_id_fkey(full_name, specialty)
-      `)
-      .eq('patient_id', profile.id)
-      .order('created_at', { ascending: false });
-    if (!error) setMedicalRecords(data || []);
+    try {
+      const data = await apiClient.getMedicalRecords(profile.id);
+      setMedicalRecords(data || []);
+    } catch (err) {
+      toast.error('Failed to load medical records');
+    }
   };
 
   const fetchAvailableSlots = async () => {
@@ -80,17 +74,19 @@ const PatientDashboard = () => {
       if (h < 17) slots.push(`${h.toString().padStart(2, '0')}:30`);
     }
 
-    // Get booked slots for that doctor on that date
-    const { data } = await supabase
-      .from('appointments')
-      .select('time_slot')
-      .eq('doctor_id', selectedDoctor.id)
-      .eq('appointment_date', selectedDate)
-      .neq('status', 'cancelled');
-
-    const taken = (data || []).map(a => a.time_slot);
-    setBookedSlots(taken);
-    setAvailableSlots(slots);
+    try {
+      const docId = selectedDoctor.id || selectedDoctor._id;
+      const data = await apiClient.getAppointments(docId, 'doctor');
+      // Filter booked slots on that date
+      const taken = (data || [])
+        .filter(a => a.appointment_date === selectedDate && a.status !== 'cancelled')
+        .map(a => a.time_slot);
+      setBookedSlots(taken);
+      setAvailableSlots(slots);
+    } catch (err) {
+      setBookedSlots([]);
+      setAvailableSlots(slots);
+    }
   };
 
   const handleBookAppointment = async (e) => {
@@ -101,16 +97,17 @@ const PatientDashboard = () => {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.from('appointments').insert({
-        patient_id: profile.id,
-        doctor_id: selectedDoctor.id,
+      const patientId = profile.id || profile._id;
+      const doctorId = selectedDoctor.id || selectedDoctor._id;
+
+      await apiClient.createAppointment({
+        patient_id: patientId,
+        doctor_id: doctorId,
         appointment_date: selectedDate,
         time_slot: selectedSlot,
         reason: bookingReason,
         priority,
-        status: 'pending',
       });
-      if (error) throw error;
       toast.success('Appointment booked successfully! 🎉');
       setSelectedDoctor(null);
       setSelectedDate('');
@@ -128,14 +125,12 @@ const PatientDashboard = () => {
 
   const handleCancelAppointment = async (apptId) => {
     if (!window.confirm('Cancel this appointment?')) return;
-    const { error } = await supabase
-      .from('appointments')
-      .update({ status: 'cancelled' })
-      .eq('id', apptId)
-      .eq('patient_id', profile.id);
-    if (!error) {
+    try {
+      await apiClient.updateAppointmentStatus(apptId, 'cancelled');
       toast.success('Appointment cancelled');
       fetchMyAppointments();
+    } catch (err) {
+      toast.error('Failed to cancel appointment');
     }
   };
 
@@ -280,34 +275,61 @@ const PatientDashboard = () => {
                         <h3>No doctors registered yet</h3>
                         <p>Doctors will appear here once they register</p>
                       </div>
-                    ) : filteredDoctors.map(doc => (
-                      <div
-                        key={doc.id}
-                        onClick={() => setSelectedDoctor(selectedDoctor?.id === doc.id ? null : doc)}
-                        style={{
-                          padding: '16px',
-                          borderRadius: 'var(--radius-md)',
-                          border: `1.5px solid ${selectedDoctor?.id === doc.id ? 'var(--primary)' : 'var(--border)'}`,
-                          background: selectedDoctor?.id === doc.id ? 'rgba(99,102,241,0.15)' : 'var(--bg-input)',
-                          cursor: 'pointer',
-                          transition: 'var(--transition)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <div style={{
-                          width: '48px', height: '48px', borderRadius: '50%',
-                          background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '20px', margin: '0 auto 10px',
-                        }}>👨‍⚕️</div>
-                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                          Dr. {doc.full_name}
+                    ) : filteredDoctors.map(doc => {
+                      const docId = doc.id || doc._id;
+                      const selectedDocId = selectedDoctor?.id || selectedDoctor?._id;
+                      const isSelected = selectedDocId === docId;
+                      return (
+                        <div
+                          key={docId}
+                          onClick={() => setSelectedDoctor(isSelected ? null : { ...doc, id: docId })}
+                          style={{
+                            padding: '18px 14px',
+                            borderRadius: 'var(--radius-lg)',
+                            border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                            background: isSelected ? 'rgba(79, 70, 229, 0.08)' : 'var(--bg-card)',
+                            boxShadow: isSelected ? 'var(--shadow-glow)' : 'var(--shadow-sm)',
+                            cursor: 'pointer',
+                            transition: 'var(--transition)',
+                            textAlign: 'center',
+                            position: 'relative',
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{
+                              position: 'absolute', top: '10px', right: '10px',
+                              background: 'var(--primary)', color: 'white',
+                              borderRadius: '50%', width: '22px', height: '22px',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '12px', fontWeight: 'bold'
+                            }}>✓</span>
+                          )}
+                          <div style={{
+                            width: '50px', height: '50px', borderRadius: '50%',
+                            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                            color: 'white',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '22px', margin: '0 auto 10px',
+                            boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)'
+                          }}>👨‍⚕️</div>
+                          <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                            Dr. {doc.full_name}
+                          </div>
+                          <div style={{
+                            display: 'inline-block',
+                            marginTop: '6px',
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: 'rgba(79, 70, 229, 0.1)',
+                            color: 'var(--primary)',
+                          }}>
+                            {doc.specialty || 'General Physician'}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--primary-light)', marginTop: '4px' }}>
-                          {doc.specialty || 'General Physician'}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 

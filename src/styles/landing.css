@@ -16,9 +16,10 @@
 }
 
 .landing-nav.scrolled {
-  background: rgba(10, 10, 26, 0.95);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   padding: 12px 0;
 }
 

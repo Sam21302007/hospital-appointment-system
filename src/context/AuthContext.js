@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../api/supabaseClient';
+import { apiClient, checkBackendStatus } from '../api/apiClient';
 
 const AuthContext = createContext({});
 
@@ -7,56 +7,63 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dbConnected, setDbConnected] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setLoading(false);
-    });
+    const initializeAuth = async () => {
+      const isOnline = await checkBackendStatus();
+      setDbConnected(isOnline);
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else { setProfile(null); setLoading(false); }
-    });
+      const currentUser = await apiClient.getProfile();
+      if (currentUser) {
+        setUser(currentUser);
+        setProfile(currentUser);
+      }
+      setLoading(false);
+    };
 
-    return () => listener.subscription.unsubscribe();
+    initializeAuth();
   }, []);
 
-  const fetchProfile = async (userId) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    setProfile(data);
-    setLoading(false);
-  };
-
   const signUp = async (email, password, profileData) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
-    if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        ...profileData,
-      });
-      if (profileError) throw profileError;
+    try {
+      const data = await apiClient.register(email, password, profileData);
+      setUser(data.user);
+      setProfile(data.user);
+      // Re-verify connection to update banner
+      const isOnline = await checkBackendStatus();
+      setDbConnected(isOnline);
+      return data;
+    } catch (err) {
+      throw err;
     }
-    return data;
   };
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
+    try {
+      const data = await apiClient.login(email, password);
+      setUser(data.user);
+      setProfile(data.user);
+      // Re-verify connection to update banner
+      const isOnline = await checkBackendStatus();
+      setDbConnected(isOnline);
+      return data;
+    } catch (err) {
+      throw err;
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    apiClient.logout();
     setUser(null);
     setProfile(null);
   };
 
+  // Keep compatibility with old code that expects isConfigured
+  const isConfigured = dbConnected;
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, fetchProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, isConfigured }}>
       {children}
     </AuthContext.Provider>
   );

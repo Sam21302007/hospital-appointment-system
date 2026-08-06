@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../api/supabaseClient';
+import { apiClient } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isConfigured } = useAuth();
   const [activeTab, setActiveTab] = useState('queue');
   const [appointments, setAppointments] = useState([]);
   const [allAppointments, setAllAppointments] = useState([]);
@@ -15,7 +15,7 @@ const DoctorDashboard = () => {
   const [selectedAppt, setSelectedAppt] = useState(null);
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [recordForm, setRecordForm] = useState({ diagnosis: '', prescription: '', notes: '' });
-  const [showAvailabilityModal] = useState(false);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false); // eslint-disable-line no-unused-vars
   const [availability, setAvailability] = useState([]);
 
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -29,63 +29,54 @@ const DoctorDashboard = () => {
 
   const fetchTodayQueue = async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        patient:profiles!appointments_patient_id_fkey(full_name, phone, gender, date_of_birth)
-      `)
-      .eq('doctor_id', profile.id)
-      .eq('appointment_date', today)
-      .neq('status', 'cancelled')
-      .order('priority', { ascending: false });
+    try {
+      const data = await apiClient.getAppointments(profile.id, 'doctor');
+      // Filter for today and not cancelled
+      const fetched = (data || []).filter(a => a.appointment_date === today && a.status !== 'cancelled');
 
-    if (!error) {
       // Sort: emergency > urgent > normal, then by time
       const priorityOrder = { emergency: 0, urgent: 1, normal: 2 };
-      const sorted = (data || []).sort((a, b) => {
+      const sorted = fetched.sort((a, b) => {
         const pd = priorityOrder[a.priority] - priorityOrder[b.priority];
         if (pd !== 0) return pd;
         return a.time_slot.localeCompare(b.time_slot);
       });
       setAppointments(sorted);
+    } catch (err) {
+      toast.error("Failed to load today's queue");
     }
   };
 
   const fetchAllAppointments = async () => {
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        patient:profiles!appointments_patient_id_fkey(full_name, phone, gender)
-      `)
-      .eq('doctor_id', profile.id)
-      .order('appointment_date', { ascending: false });
-    if (!error) setAllAppointments(data || []);
+    try {
+      const data = await apiClient.getAppointments(profile.id, 'doctor');
+      setAllAppointments(data || []);
+    } catch (err) {
+      toast.error('Failed to load appointments');
+    }
   };
 
   const fetchAvailability = async () => {
-    const { data } = await supabase
-      .from('doctor_availability')
-      .select('*')
-      .eq('doctor_id', profile.id)
-      .order('day_of_week');
-    setAvailability(data || []);
+    try {
+      const data = await apiClient.getAvailability(profile.id);
+      setAvailability(data || []);
+    } catch (err) {
+      toast.error('Failed to load availability');
+    }
   };
 
   const handleUpdateStatus = async (apptId, status) => {
     setLoading(true);
-    const { error } = await supabase
-      .from('appointments')
-      .update({ status })
-      .eq('id', apptId)
-      .eq('doctor_id', profile.id);
-    if (!error) {
+    try {
+      await apiClient.updateAppointmentStatus(apptId, status);
       toast.success(`Appointment ${status}!`);
       fetchTodayQueue();
       fetchAllAppointments();
+    } catch (err) {
+      toast.error('Failed to update status');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleAddRecord = async (e) => {
@@ -96,7 +87,7 @@ const DoctorDashboard = () => {
     }
     setLoading(true);
     try {
-      const { error: recErr } = await supabase.from('medical_records').insert({
+      await apiClient.createMedicalRecord({
         patient_id: selectedAppt.patient_id,
         doctor_id: profile.id,
         appointment_id: selectedAppt.id,
@@ -104,9 +95,6 @@ const DoctorDashboard = () => {
         prescription: recordForm.prescription,
         notes: recordForm.notes,
       });
-      if (recErr) throw recErr;
-
-      await supabase.from('appointments').update({ status: 'completed' }).eq('id', selectedAppt.id);
       toast.success('Medical record saved & appointment completed! ✅');
       setShowRecordModal(false);
       setRecordForm({ diagnosis: '', prescription: '', notes: '' });
@@ -121,17 +109,13 @@ const DoctorDashboard = () => {
   };
 
   const handleSaveAvailability = async () => {
-    // Delete existing and re-insert
-    await supabase.from('doctor_availability').delete().eq('doctor_id', profile.id);
-    if (availability.length > 0) {
-      const { error } = await supabase.from('doctor_availability').insert(
-        availability.map(a => ({ ...a, doctor_id: profile.id }))
-      );
-      if (!error) toast.success('Availability updated!');
-    } else {
-      toast.success('Availability cleared');
+    try {
+      await apiClient.updateAvailability(profile.id, availability);
+      toast.success('Availability updated!');
+      setShowAvailabilityModal(false);
+    } catch (err) {
+      toast.error('Failed to save availability');
     }
-    setShowAvailabilityModal(false);
   };
 
   const toggleDay = (dayIndex) => {

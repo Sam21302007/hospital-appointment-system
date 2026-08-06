@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../api/supabaseClient';
+import { apiClient } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { format, subDays } from 'date-fns';
@@ -13,7 +13,7 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6'
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isConfigured } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({ patients: 0, doctors: 0, todayAppts: 0, totalAppts: 0 });
   const [allAppointments, setAllAppointments] = useState([]);
@@ -24,6 +24,8 @@ const AdminDashboard = () => {
   const [doctorStats, setDoctorStats] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (!profile) return;
     fetchAll(); // eslint-disable-line react-hooks/exhaustive-deps
@@ -31,70 +33,80 @@ const AdminDashboard = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchStats(), fetchAppointments(), fetchUsers()]);
+    await Promise.all([fetchAppointments(), fetchUsers()]);
     setLoading(false);
   };
 
-  const fetchStats = async () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const [{ count: patients }, { count: doctors }, { count: todayAppts }, { count: totalAppts }] =
-      await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'doctor'),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('appointment_date', today),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }),
-      ]);
-    setStats({ patients: patients || 0, doctors: doctors || 0, todayAppts: todayAppts || 0, totalAppts: totalAppts || 0 });
-  };
-
   const fetchAppointments = async () => {
-    const { data } = await supabase
-      .from('appointments')
-      .select(`*, patient:profiles!appointments_patient_id_fkey(full_name), doctor:profiles!appointments_doctor_id_fkey(full_name, specialty)`)
-      .order('appointment_date', { ascending: false });
-    const appts = data || [];
-    setAllAppointments(appts);
+    try {
+      const appts = await apiClient.getAppointments(null, 'admin');
+      setAllAppointments(appts);
 
-    // Weekly chart data (last 7 days)
-    const weekly = Array.from({ length: 7 }, (_, i) => {
-      const d = subDays(new Date(), 6 - i);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      return {
-        day: format(d, 'EEE'),
-        count: appts.filter(a => a.appointment_date === dateStr).length,
-      };
-    });
-    setWeeklyData(weekly);
+      // Weekly chart data (last 7 days)
+      const weekly = Array.from({ length: 7 }, (_, i) => {
+        const d = subDays(new Date(), 6 - i);
+        const dateStr = format(d, 'yyyy-MM-dd');
+        return {
+          day: format(d, 'EEE'),
+          count: appts.filter(a => a.appointment_date === dateStr).length,
+        };
+      });
+      setWeeklyData(weekly);
 
-    // Status distribution
-    const statusMap = {};
-    appts.forEach(a => { statusMap[a.status] = (statusMap[a.status] || 0) + 1; });
-    setStatusData(Object.entries(statusMap).map(([name, value]) => ({ name, value })));
+      // Status distribution
+      const statusMap = {};
+      appts.forEach(a => { statusMap[a.status] = (statusMap[a.status] || 0) + 1; });
+      setStatusData(Object.entries(statusMap).map(([name, value]) => ({ name, value })));
 
-    // Priority distribution
-    const priMap = {};
-    appts.forEach(a => { priMap[a.priority] = (priMap[a.priority] || 0) + 1; });
-    setPriorityData(Object.entries(priMap).map(([name, value]) => ({ name, value })));
+      // Priority distribution
+      const priMap = {};
+      appts.forEach(a => { priMap[a.priority] = (priMap[a.priority] || 0) + 1; });
+      setPriorityData(Object.entries(priMap).map(([name, value]) => ({ name, value })));
 
-    // Doctor stats
-    const docMap = {};
-    appts.forEach(a => {
-      const name = a.doctor?.full_name || 'Unknown';
-      if (!docMap[name]) docMap[name] = { name, total: 0, completed: 0, specialty: a.doctor?.specialty };
-      docMap[name].total++;
-      if (a.status === 'completed') docMap[name].completed++;
-    });
-    setDoctorStats(Object.values(docMap).sort((a, b) => b.total - a.total));
+      // Doctor stats
+      const docMap = {};
+      appts.forEach(a => {
+        const name = a.doctor?.full_name || 'Unknown';
+        if (!docMap[name]) docMap[name] = { name, total: 0, completed: 0, specialty: a.doctor?.specialty };
+        docMap[name].total++;
+        if (a.status === 'completed') docMap[name].completed++;
+      });
+      setDoctorStats(Object.values(docMap).sort((a, b) => b.total - a.total));
+
+      // Calculate stats overview
+      const today = format(new Date(), 'yyyy-MM-dd');
+      setStats(prev => ({
+        ...prev,
+        todayAppts: appts.filter(a => a.appointment_date === today).length,
+        totalAppts: appts.length,
+      }));
+    } catch (err) {
+      toast.error('Failed to load appointments');
+    }
   };
 
   const fetchUsers = async () => {
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    setAllUsers(data || []);
+    try {
+      const users = await apiClient.getUsers();
+      setAllUsers(users);
+      setStats(prev => ({
+        ...prev,
+        patients: users.filter(u => u.role === 'patient').length,
+        doctors: users.filter(u => u.role === 'doctor').length,
+      }));
+    } catch (err) {
+      toast.error('Failed to load users');
+    }
   };
 
   const handleUpdateAppt = async (id, status) => {
-    const { error } = await supabase.from('appointments').update({ status }).eq('id', id);
-    if (!error) { toast.success(`Appointment ${status}`); fetchAppointments(); }
+    try {
+      await apiClient.updateAppointmentStatus(id, status);
+      toast.success(`Appointment ${status}`);
+      fetchAppointments();
+    } catch (err) {
+      toast.error('Failed to update appointment');
+    }
   };
 
   const handleExportCSV = () => {
