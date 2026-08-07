@@ -64,6 +64,8 @@
 
 html { scroll-behavior: smooth; }
 
+@keyframes spin { to { transform: rotate(360deg); } }
+
 body {
   font-family: var(--font-main);
   background: var(--bg-primary);
