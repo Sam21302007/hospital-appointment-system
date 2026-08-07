@@ -9,7 +9,7 @@ let backendOnline = false;
 // Helper to check backend health
 export const checkBackendStatus = async () => {
   try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(1500) });
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
     backendOnline = data.status === 'healthy';
   } catch (err) {

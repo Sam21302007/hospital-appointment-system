@@ -21,8 +21,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/medcar
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  credentials: true
+  origin: '*', // Allow Vercel frontend to connect
 }));
 app.use(express.json());
 
