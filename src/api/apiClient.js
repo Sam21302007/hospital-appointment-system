@@ -1,6 +1,7 @@
 import { mockAuth, mockDb } from './localStorageDb';
 
-const API_BASE = 'https://medvault-api.onrender.com/api';
+const API_BASE = 'https://medvault-api-xxxx.onrender.com/api'; // Replace with your actual Render URL
+
 
 // Cache variable to track backend connection status
 let backendOnline = false;
