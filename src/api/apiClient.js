@@ -1,6 +1,6 @@
 import { mockAuth, mockDb } from './localStorageDb';
 
-const API_BASE = 'https://hospital-appointment-system-7m9b.onrender.com; // Replace with your actual Render URL
+const API_BASE = 'https://hospital-appointment-system-7m9b.onrender.com/api';
 
 
 // Cache variable to track backend connection status
