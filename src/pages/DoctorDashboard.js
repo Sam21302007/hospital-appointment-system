@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-  const { profile, signOut, isConfigured } = useAuth();
+  const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('queue');
   const [appointments, setAppointments] = useState([]);
   const [allAppointments, setAllAppointments] = useState([]);
@@ -22,9 +22,10 @@ const DoctorDashboard = () => {
 
   useEffect(() => {
     if (!profile) return;
-    fetchTodayQueue(); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchTodayQueue();
     fetchAllAppointments();
     fetchAvailability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const fetchTodayQueue = async () => {

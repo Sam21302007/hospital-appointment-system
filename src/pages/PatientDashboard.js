@@ -7,7 +7,7 @@ import { format, addDays, isToday, isTomorrow } from 'date-fns';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const { profile, signOut, isConfigured } = useAuth();
+  const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('book');
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -26,17 +26,19 @@ const PatientDashboard = () => {
 
   useEffect(() => {
     if (!profile) return;
-    fetchDoctors(); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchDoctors();
     fetchMyAppointments();
     fetchMedicalRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
-      fetchAvailableSlots(); // eslint-disable-line react-hooks/exhaustive-deps
+      fetchAvailableSlots();
     } else {
       setAvailableSlots([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDoctor, selectedDate]);
 
   const fetchDoctors = async () => {

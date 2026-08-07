@@ -1,6 +1,6 @@
 import { mockAuth, mockDb } from './localStorageDb';
 
-const API_BASE = 'https://hospital-appointment-system-7m9b.onrender.com/api';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 
 // Cache variable to track backend connection status
@@ -11,7 +11,7 @@ export const checkBackendStatus = async () => {
   try {
     const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
-    backendOnline = data.status === 'healthy';
+    backendOnline = data.status === 'healthy' && data.database === 'connected';
   } catch (err) {
     backendOnline = false;
   }

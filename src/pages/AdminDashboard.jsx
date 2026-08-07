@@ -13,7 +13,7 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6'
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { profile, signOut, isConfigured } = useAuth();
+  const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({ patients: 0, doctors: 0, todayAppts: 0, totalAppts: 0 });
   const [allAppointments, setAllAppointments] = useState([]);
@@ -28,7 +28,8 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (!profile) return;
-    fetchAll(); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const fetchAll = async () => {
@@ -187,8 +188,11 @@ const AdminDashboard = () => {
         </div>
 
         <div className="page-content">
+          {loading && activeTab === 'overview' && (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading data...</div>
+          )}
           {/* OVERVIEW */}
-          {activeTab === 'overview' && (
+          {activeTab === 'overview' && !loading && (
             <div>
               <div className="stats-grid">
                 {[

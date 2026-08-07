@@ -67,7 +67,7 @@ const AppRoutes = () => (
 );
 
 const DatabaseStatusBanner = () => {
-  const { isConfigured, dbStatus } = useAuth();
+  const { isConfigured } = useAuth();
 
   // Show a gentle connecting info bar, not a scary error
   if (isConfigured) return null;

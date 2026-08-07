@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -25,17 +25,17 @@ const AuthPage = () => {
     specialty: '',
   });
 
+  const redirectByRole = useCallback((r) => {
+    if (r === 'admin') navigate('/admin');
+    else if (r === 'doctor') navigate('/doctor');
+    else navigate('/patient');
+  }, [navigate]);
+
   useEffect(() => {
     if (user && profile) {
       redirectByRole(profile.role);
     }
-  }, [user, profile]);
-
-  const redirectByRole = (r) => {
-    if (r === 'admin') navigate('/admin');
-    else if (r === 'doctor') navigate('/doctor');
-    else navigate('/patient');
-  };
+  }, [user, profile, redirectByRole]);
 
   const demoAccounts = [
     { label: 'Patient Demo', email: 'patient@demo.com', password: 'demo1234', role: 'patient' },
