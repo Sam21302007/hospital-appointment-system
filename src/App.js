@@ -67,10 +67,16 @@ const AppRoutes = () => (
 );
 
 const DatabaseStatusBanner = () => {
-  const { isConfigured } = useAuth();
+  const { isConfigured, retryConnection } = useAuth();
+  const [retrying, setRetrying] = React.useState(false);
 
-  // Show a gentle connecting info bar, not a scary error
   if (isConfigured) return null;
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    await retryConnection();
+    setRetrying(false);
+  };
 
   return (
     <div style={{
@@ -83,13 +89,29 @@ const DatabaseStatusBanner = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: '10px',
+      gap: '12px',
       position: 'sticky',
       top: 0,
       zIndex: 2000,
     }}>
       <span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <span>Connecting to database — running on demo data until connected...</span>
+      <span>Connecting to MongoDB Atlas database...</span>
+      <button
+        onClick={handleRetry}
+        disabled={retrying}
+        style={{
+          background: 'rgba(255,255,255,0.2)',
+          border: '1px solid rgba(255,255,255,0.4)',
+          color: '#fff',
+          padding: '2px 10px',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: '600'
+        }}
+      >
+        {retrying ? 'Connecting...' : 'Retry Now'}
+      </button>
     </div>
   );
 };

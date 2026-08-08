@@ -9,6 +9,7 @@ const DoctorDashboard = () => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('queue');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [allAppointments, setAllAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -165,14 +166,27 @@ const DoctorDashboard = () => {
 
   return (
     <div className="dashboard-layout">
+      {/* Mobile Backdrop */}
+      {mobileNavOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon">🏥</div>
           <div className="logo-text">
             <h2>MedCare</h2>
             <span>Doctor Portal</span>
           </div>
+          {mobileNavOpen && (
+            <button
+              onClick={() => setMobileNavOpen(false)}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">
@@ -181,7 +195,10 @@ const DoctorDashboard = () => {
             <button
               key={item.id}
               className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                setMobileNavOpen(false);
+              }}
             >
               <span className="nav-icon">{item.icon}</span>
               {item.label}
@@ -208,9 +225,18 @@ const DoctorDashboard = () => {
       {/* Main Content */}
       <main className="main-content">
         <div className="dashboard-header">
-          <div className="header-title">
-            <h1>{navItems.find(n => n.id === activeTab)?.icon} {navItems.find(n => n.id === activeTab)?.label}</h1>
-            <p>{format(new Date(), 'EEEE, MMMM dd, yyyy')}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              className="mobile-nav-toggle"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              aria-label="Toggle navigation menu"
+            >
+              {mobileNavOpen ? '✕' : '☰'}
+            </button>
+            <div className="header-title">
+              <h1>{navItems.find(n => n.id === activeTab)?.icon} {navItems.find(n => n.id === activeTab)?.label}</h1>
+              <p>{format(new Date(), 'EEEE, MMMM dd, yyyy')}</p>
+            </div>
           </div>
           <span className="badge badge-confirmed">👨‍⚕️ Doctor</span>
         </div>

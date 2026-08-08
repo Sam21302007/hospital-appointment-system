@@ -165,42 +165,46 @@ const seedDatabase = async () => {
   }
 };
 
-// Database Connection
-mongoose
-  .connect(MONGODB_URI)
-  .then(async () => {
+// Mongoose connection event listeners
+mongoose.connection.on('connected', () => {
+  console.log('✅ Mongoose connected to MongoDB Atlas');
+});
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err.message);
+});
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️ Mongoose disconnected from MongoDB Atlas');
+});
+
+// Database Connection & Standalone Server Startup
+const connectDbAndStart = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
     console.log(`Connected to MongoDB ${MONGODB_URI.includes('localhost') ? 'Locally' : 'Atlas'} (database: medcare)`);
     await seedDatabase();
-    
-    // Start server on available port
-    const startServer = async () => {
-      let chosenPort = PORT;
-      const freePort = await (getPort ? getPort(chosenPort) : detectPort(chosenPort));
-      if (freePort !== chosenPort) {
-        console.log(`Port ${chosenPort} in use, switching to free port ${freePort}`);
-        chosenPort = freePort;
-      }
-      app.listen(chosenPort, () => {
-        console.log(`Express API Server running on port ${chosenPort}`);
-      });
-    };
-    startServer();
-  })
-  .catch((err) => {
-    console.error('❌ Connection to MongoDB failed. Ensure MongoDB is running on localhost:27017.');
-    console.error(err);
-    
-    // In case MongoDB fails, start the server anyway so health checks work and we fall back gracefully
-    const startServer = async () => {
-      let chosenPort = PORT;
-      const freePort = await (getPort ? getPort(chosenPort) : detectPort(chosenPort));
-      if (freePort !== chosenPort) {
-        console.log(`Port ${chosenPort} in use, switching to free port ${freePort}`);
-        chosenPort = freePort;
-      }
-      app.listen(chosenPort, () => {
-        console.log(`Express API Server running on port ${chosenPort} (Warning: Database disconnected)`);
-      });
-    };
-    startServer();
+  } catch (err) {
+    console.error('❌ Initial MongoDB connection failed:', err.message);
+  }
+
+  let chosenPort = PORT;
+  try {
+    const freePort = await (getPort ? getPort(chosenPort) : detectPort(chosenPort));
+    if (Number(freePort) !== Number(chosenPort)) {
+      console.log(`Port ${chosenPort} in use, switching to free port ${freePort}`);
+      chosenPort = freePort;
+    }
+  } catch (e) {
+    console.warn('Port detection warning:', e.message);
+  }
+
+  app.listen(chosenPort, () => {
+    console.log(`Express API Server running on port ${chosenPort}`);
   });
+};
+
+if (require.main === module) {
+  connectDbAndStart();
+}
+
+module.exports = app;
+

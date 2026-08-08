@@ -1,21 +1,45 @@
 import { mockAuth, mockDb } from './localStorageDb';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+let activeApiBase = (() => {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return `${window.location.origin}/api`;
+  }
+  return 'http://localhost:5000/api';
+})();
 
-
-// Cache variable to track backend connection status
 let backendOnline = false;
 
-// Helper to check backend health
+export const getApiBase = () => activeApiBase;
+
 export const checkBackendStatus = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) });
-    const data = await res.json();
-    backendOnline = data.status === 'healthy' && data.database === 'connected';
-  } catch (err) {
-    backendOnline = false;
+  const candidateBases = [activeApiBase];
+  
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    const originApi = `${window.location.origin}/api`;
+    if (!candidateBases.includes(originApi)) candidateBases.unshift(originApi);
+  } else {
+    ['http://localhost:5000/api', 'http://localhost:5001/api', 'http://localhost:5002/api', 'http://localhost:5003/api'].forEach(url => {
+      if (!candidateBases.includes(url)) candidateBases.push(url);
+    });
   }
-  return backendOnline;
+
+  for (const baseUrl of candidateBases) {
+    try {
+      const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(3500) });
+      const data = await res.json();
+      if (data.status === 'healthy' && data.database === 'connected') {
+        activeApiBase = baseUrl;
+        backendOnline = true;
+        return true;
+      }
+    } catch (err) {
+      // Continue checking candidate URLs
+    }
+  }
+
+  backendOnline = false;
+  return false;
 };
 
 // Check immediately on load
@@ -41,7 +65,7 @@ export const apiClient = {
       return { user: res.user, token: 'mock-jwt-token' };
     }
 
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const res = await fetch(`${getApiBase()}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -62,7 +86,7 @@ export const apiClient = {
       return { user: res.user, token: 'mock-jwt-token' };
     }
 
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const res = await fetch(`${getApiBase()}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, ...profileData })
@@ -89,7 +113,7 @@ export const apiClient = {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/auth/me`, {
+      const res = await fetch(`${getApiBase()}/auth/me`, {
         headers: getHeaders()
       });
       if (!res.ok) {
@@ -110,7 +134,7 @@ export const apiClient = {
       return list.map(d => ({ ...d, id: d.id || d._id }));
     }
 
-    const res = await fetch(`${API_BASE}/auth/doctors`, {
+    const res = await fetch(`${getApiBase()}/auth/doctors`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch doctors list');
@@ -125,7 +149,7 @@ export const apiClient = {
       return list.map(u => ({ ...u, id: u.id || u._id }));
     }
 
-    const res = await fetch(`${API_BASE}/auth/users`, {
+    const res = await fetch(`${getApiBase()}/auth/users`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch users list');
@@ -140,7 +164,7 @@ export const apiClient = {
       return mockDb.getAppointments(userId, role);
     }
 
-    const res = await fetch(`${API_BASE}/appointments`, {
+    const res = await fetch(`${getApiBase()}/appointments`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch appointments');
@@ -153,7 +177,7 @@ export const apiClient = {
       return mockDb.createAppointment(apptData);
     }
 
-    const res = await fetch(`${API_BASE}/appointments`, {
+    const res = await fetch(`${getApiBase()}/appointments`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(apptData)
@@ -171,7 +195,7 @@ export const apiClient = {
       return mockDb.updateAppointmentStatus(apptId, status);
     }
 
-    const res = await fetch(`${API_BASE}/appointments/${apptId}`, {
+    const res = await fetch(`${getApiBase()}/appointments/${apptId}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify({ status, notes })
@@ -187,7 +211,7 @@ export const apiClient = {
       return mockDb.getMedicalRecords(patientId);
     }
 
-    const res = await fetch(`${API_BASE}/records`, {
+    const res = await fetch(`${getApiBase()}/records`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch medical records');
@@ -202,7 +226,7 @@ export const apiClient = {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/records`, {
+    const res = await fetch(`${getApiBase()}/records`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(recordData)
@@ -221,7 +245,7 @@ export const apiClient = {
       return mockDb.getAvailability(doctorId);
     }
 
-    const res = await fetch(`${API_BASE}/availability/${doctorId}`, {
+    const res = await fetch(`${getApiBase()}/availability/${doctorId}`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch availability');
@@ -234,7 +258,7 @@ export const apiClient = {
       return mockDb.updateAvailability(doctorId, availabilityData);
     }
 
-    const res = await fetch(`${API_BASE}/availability`, {
+    const res = await fetch(`${getApiBase()}/availability`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ availability: availabilityData })

@@ -9,6 +9,7 @@ const PatientDashboard = () => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('book');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [medicalRecords, setMedicalRecords] = useState([]);
@@ -164,14 +165,27 @@ const PatientDashboard = () => {
 
   return (
     <div className="dashboard-layout">
+      {/* Mobile Backdrop */}
+      {mobileNavOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon">🏥</div>
           <div className="logo-text">
             <h2>MedCare</h2>
             <span>Patient Portal</span>
           </div>
+          {mobileNavOpen && (
+            <button
+              onClick={() => setMobileNavOpen(false)}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">
@@ -180,7 +194,10 @@ const PatientDashboard = () => {
             <button
               key={item.id}
               className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                setMobileNavOpen(false);
+              }}
             >
               <span className="nav-icon">{item.icon}</span>
               {item.label}
@@ -207,12 +224,21 @@ const PatientDashboard = () => {
       {/* Main Content */}
       <main className="main-content">
         <div className="dashboard-header">
-          <div className="header-title">
-            <h1>
-              {navItems.find(n => n.id === activeTab)?.icon}{' '}
-              {navItems.find(n => n.id === activeTab)?.label}
-            </h1>
-            <p>Welcome back, {profile?.full_name?.split(' ')[0] || 'Patient'}!</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              className="mobile-nav-toggle"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              aria-label="Toggle navigation menu"
+            >
+              {mobileNavOpen ? '✕' : '☰'}
+            </button>
+            <div className="header-title">
+              <h1>
+                {navItems.find(n => n.id === activeTab)?.icon}{' '}
+                {navItems.find(n => n.id === activeTab)?.label}
+              </h1>
+              <p>Welcome back, {profile?.full_name?.split(' ')[0] || 'Patient'}!</p>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span className="badge badge-confirmed">✅ Patient</span>
@@ -342,7 +368,7 @@ const PatientDashboard = () => {
                       📅 Book with Dr. {selectedDoctor.full_name}
                     </h3>
                     <form onSubmit={handleBookAppointment}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                         <div className="form-group">
                           <label className="form-label">Appointment Date *</label>
                           <input

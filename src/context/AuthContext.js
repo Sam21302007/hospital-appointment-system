@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiClient, checkBackendStatus } from '../api/apiClient';
 
 const AuthContext = createContext({});
@@ -9,30 +9,54 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [dbConnected, setDbConnected] = useState(false);
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const isOnline = await checkBackendStatus();
-      setDbConnected(isOnline);
-
+  const checkConnection = useCallback(async () => {
+    const isOnline = await checkBackendStatus();
+    setDbConnected(isOnline);
+    if (isOnline) {
       const currentUser = await apiClient.getProfile();
       if (currentUser) {
         setUser(currentUser);
         setProfile(currentUser);
       }
+    }
+    return isOnline;
+  }, []);
+
+  useEffect(() => {
+    const initializeAuth = async () => {
+      await checkConnection();
       setLoading(false);
     };
 
     initializeAuth();
-  }, []);
+  }, [checkConnection]);
+
+  // Polling mechanism: if db is disconnected, auto-retry every 3 seconds
+  useEffect(() => {
+    let intervalId;
+    if (!dbConnected) {
+      intervalId = setInterval(async () => {
+        const isOnline = await checkConnection();
+        if (isOnline) {
+          clearInterval(intervalId);
+        }
+      }, 3000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [dbConnected, checkConnection]);
+
+  const retryConnection = async () => {
+    return await checkConnection();
+  };
 
   const signUp = async (email, password, profileData) => {
     try {
       const data = await apiClient.register(email, password, profileData);
       setUser(data.user);
       setProfile(data.user);
-      // Re-verify connection to update banner
-      const isOnline = await checkBackendStatus();
-      setDbConnected(isOnline);
+      await checkConnection();
       return data;
     } catch (err) {
       throw err;
@@ -44,9 +68,7 @@ export const AuthProvider = ({ children }) => {
       const data = await apiClient.login(email, password);
       setUser(data.user);
       setProfile(data.user);
-      // Re-verify connection to update banner
-      const isOnline = await checkBackendStatus();
-      setDbConnected(isOnline);
+      await checkConnection();
       return data;
     } catch (err) {
       throw err;
@@ -63,7 +85,7 @@ export const AuthProvider = ({ children }) => {
   const isConfigured = dbConnected;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, isConfigured }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, isConfigured, retryConnection }}>
       {children}
     </AuthContext.Provider>
   );
