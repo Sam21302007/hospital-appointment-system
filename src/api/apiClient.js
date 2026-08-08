@@ -1,37 +1,37 @@
 import { mockAuth, mockDb } from './localStorageDb';
 
-let activeApiBase = (() => {
-  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `${window.location.origin}/api`;
-  }
-  return 'http://localhost:5000/api';
-})();
-
+let activeApiBase = '/api';
 let backendOnline = false;
 
 export const getApiBase = () => activeApiBase;
 
 export const checkBackendStatus = async () => {
-  const candidateBases = [activeApiBase];
-  
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  const candidateBases = ['/api'];
+
+  if (typeof window !== 'undefined') {
     const originApi = `${window.location.origin}/api`;
-    if (!candidateBases.includes(originApi)) candidateBases.unshift(originApi);
-  } else {
-    ['http://localhost:5000/api', 'http://localhost:5001/api', 'http://localhost:5002/api', 'http://localhost:5003/api'].forEach(url => {
-      if (!candidateBases.includes(url)) candidateBases.push(url);
-    });
+    if (!candidateBases.includes(originApi)) candidateBases.push(originApi);
+
+    if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      candidateBases.push(`${window.location.protocol}//${window.location.hostname}:5000/api`);
+      candidateBases.push(`${window.location.protocol}//${window.location.hostname}:5001/api`);
+    }
   }
+
+  ['http://localhost:5000/api', 'http://localhost:5001/api', 'http://localhost:5002/api', 'http://localhost:5003/api'].forEach(url => {
+    if (!candidateBases.includes(url)) candidateBases.push(url);
+  });
 
   for (const baseUrl of candidateBases) {
     try {
       const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(3500) });
-      const data = await res.json();
-      if (data.status === 'healthy' && data.database === 'connected') {
-        activeApiBase = baseUrl;
-        backendOnline = true;
-        return true;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'healthy' && data.database === 'connected') {
+          activeApiBase = baseUrl;
+          backendOnline = true;
+          return true;
+        }
       }
     } catch (err) {
       // Continue checking candidate URLs
